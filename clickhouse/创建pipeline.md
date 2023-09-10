@@ -23,7 +23,8 @@ insert into default.test(a,b,c) values(5,2,2),(5,3,3);
 insert into default.test(a,b,c) values(3,10,4),(3,9,5),(3,8,6),(3,7,7),(3,6,8),(3,5,9),(3,4,10);
 ```
 ## 查询语句与生成的执行计划
-`select * from test WHERE b = 3 limit 2`
+`select * from test WHERE b = 3 limit 2`  
+注意：此时需要将optimize_move_to_prewhere关闭，否则filterstep会被优化在prewhere逻辑，表现出来的pipeline不一样没有下面的直观。  
 
 pipeline
 ```
@@ -43,7 +44,7 @@ pipeline
 下面是由上面查询计划画出的dag图
 ![](../images/image-14.png)
 ### 怎么生成的执行计划呢？
-![](../images/image-15.png)
+![](../images/image-15.png)  
 接下来跟着代码一步步往下走
 ```
 static std::tuple<ASTPtr, BlockIO> executeQueryImpl()
@@ -69,7 +70,7 @@ bool ParserQueryWithOutput::parseImpl(Pos & pos, ASTPtr & node, Expected & expec
            explain_p.parse(pos, query, expected)
         || select_p.parse(pos, query, expected)
 ```
-#### 解释器构造
+#### AST重写优化
 ```
 InterpreterSelectQuery::InterpreterSelectQuery(
 )

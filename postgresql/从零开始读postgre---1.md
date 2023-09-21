@@ -2,7 +2,18 @@
     postgre所有数据存储在数据目录里，通常会用环境变量PGDATA来引用。
     在postgre中，对象标识符（OID）用来在整个数据集簇中唯一地标识一个数据库对象，可以是数据库、表、索引、试图、元组、类型等，它实际是一个无符号整数。
 
-    对于某个具体的数据库，在PGDATA/base对应一个子目录，子目录名字是该数据库在系统表pg_database里的oid。索引和表都存在该数据库目录下，以该表或者索引的filenode号命名，该号码记录在该表或索引在系统表pg_class中对应元组的relfilenode属性中。
+    对于某个具体的数据库，在PGDATA/base对应一个子目录，子目录名字是该数据库在系统表pg_database里的oid。索引和表都存在该数据库目录下，以该表或者索引的filenode号命名，该号码记录在该表或索引在系统表pg_class中对应元组的relfilenode属性中。  
+    可以使用oid2name获取数据库、对象的oid
+
+    relfienode
+        标识对象物理位置的数字标号，随数据存放的位置变化而变化  
+        pg_relation_filenode()可以获取对象的relfilenode  
+    
+## oid和relfilenode的关系
+    oid-身份证号  
+    refilenode-户口本上户号  
+    只要人的主旨变了，户号就会变  
+    truncate、vacuum full、删除和重新建表都会导致refilenode变化
 
 
 ![](../images/postgresql/image.png)
@@ -63,5 +74,13 @@ log_error_verbosity = verbose
 log_timezone = 'PRC'
 
 ```
+
+## 调试
+
+select pg_backend_pid();
+
+然后再gdb attch 到这个进程
+
+
 
 

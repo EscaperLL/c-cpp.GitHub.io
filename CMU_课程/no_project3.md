@@ -106,9 +106,65 @@ Deadlock prevention 是一种事前行为，采用这种方案的 DBMS 无需维
 2. Young Waits for Old：如果 requesting txn 优先级比 holding txn 更高则后者自行中止释放锁，让前者获取锁，否则 requesting txn 等待 holding txn 释放锁  
 
 
-# Concurrency Control Protocol
-MVCC 可以选择其中任意一个：
+# MVCC
+
+MVCC不止是一个并发控制协议，它由许多部分组成，这些部分包括：
+1. Concurrency Control Protocol
+2. Version Storage
+3. Garbage Collection
+4. Index Management
+
+## Concurrency Control Protocol
+
 1. Timestamp Ordering (T/O)：为每个事务赋予时间戳，并用以决定执行顺序
 2. Optimistic Concurrency Control (OCC)：为每个事务创建 private workspace，并将事务分为 read, write 和 validate 3 个阶段处理 cmu这个项目采用的就是该协议
-3. Two-Phase Locking (2PL)：按照 2PL 的约定获取和释放锁
+3. Two-Phase Locking (2PL)：按照 2PL 的约定获取和释放锁，15-445是采用的这个
+   
+## Version Storage
+
+如何存储一条数据的多个版本？DBMS通常会在每条数据上拉一条版本链表（version chain），所有相关的索引都会知道这个链表的head，DBMS可以利用它找到一个事务应该给访问到的版本。不同的版本存储方案在version chain上存储的数据不同，主要由3中方案：
+1. append-only：新版本通过追加的方式存储在同一张表中
+2. Time_travel：老版本被复制到单独的一张表中
+3. delta storage：老版本数据的被修改的字段值被复制到一张单独的增量表中
+
+### Append-Only Storage
+同一个逻辑数据的所有物理版本都被存储在同一张表上，每次更新时，就往表上追加一个新的版本记录，并在旧版本的数据上增加一个指针指向新版本：
+![alt text](image-17.png)  
+也许你已经注意到，指针的方向也可以从新到旧，二者的权衡如下：
+
+Approach #1：Oldest-to-Newest (O2N)：写的时候追加即可，读的时候需要遍历链表
+Approach #2：Newest-to-Oldest (N2O)：写的时候需要更新所有索引指针，读的时候不需要遍历链表
+
+### Time-Travel Storage
+单独拿一张表 (Time-Travel Table) 来存历史数据，每当更新数据时，就把当前版本复制到 TTT 中，并更新指针：
+![alt text](image-13.png)
+
+### Delta Storage
+每次更新，仅将变化的字段信息存储到 delta storage segment 中：
+![alt text](image-14.png)  
+DBMS 可以通过 delta 数据逆向恢复数据到之前的版本。
+
+## Garbage Collection
+随着时间的推移，DBMS 中数据的旧版本可能不再会被用到，如：
+1. 已经没有活跃的事务需要看到该版本
+2. 该版本是被一个已经中止的事务创建
+
+GC 可以从两个角度出发：
+1. Tuple-level：直接检查每条数据的旧版本数据
+2. Transaction-level：每个事务负责跟踪数据的旧版本，DBMS 不需要亲自检查单条数据
+
+### Tuple-Level GC
+Background Vacuuming
+![alt text](image-15.png)
+
+为了加快 GC 的速度，DBMS 可以再维护一个脏页位图 (dirty page bitmap)，利用它，Vacuum 线程可以只检查发生过改动的数据，用空间换时间。Background Vacuuming 被用于任意 Version Storage 的方案。
+
+#### Cooperative Cleaning
+还有一种做法是当 worker thread 查询数据时，顺便将不再使用物理数据版本删除：
+![alt text](image-16.png)
+
+cooperative cleaning 只能用于使用 O2N 的 version chain 方案。
+### Transaction-Level GC
+让每个事务都保存着它的读写数据集合 (read/write set)，当 DBMS 决定什么时候这个事务创建的各版本数据可以被回收时，就按照集合内部的数据处理即可。
+
 
